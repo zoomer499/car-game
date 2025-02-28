@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-let scene, camera, renderer, car, roadSegments = [];
+let scene, camera, renderer, car, roadSegments = [], grassSegments = [];
 let trees = [];
 let barriers = [];
 let speed = 0.2;
@@ -41,7 +41,8 @@ function init() {
     const skyTexture = textureLoader.load('sky.jpg');
     scene.background = skyTexture;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) { // Увеличено с 5 до 10
+        // Создание травы
         const groundGeometry = new THREE.PlaneGeometry(30, 20);
         const groundMaterial = new THREE.MeshStandardMaterial({ map: grassTexture });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -49,10 +50,9 @@ function init() {
         ground.position.z = -i * 20;
         ground.receiveShadow = true;
         scene.add(ground);
-        roadSegments.push(ground);
-    }
+        grassSegments.push(ground); 
     
-    for (let i = 0; i < 5; i++) {
+        // Создание дороги
         const roadGeometry = new THREE.PlaneGeometry(10, 20);
         const roadMaterial = new THREE.MeshStandardMaterial({ map: roadTexture });
         const road = new THREE.Mesh(roadGeometry, roadMaterial);
@@ -104,21 +104,40 @@ function createCar() {
 function updateRoad() {
     roadSegments.forEach(segment => {
         segment.position.z += speed + carSpeed;
-        if (segment.position.z > 10) {
-            // Находим самый дальний сегмент и перемещаем его назад
-            segment.position.z = roadSegments.reduce((min, seg) => Math.min(min, seg.position.z), segment.position.z) - 20;
-        }
     });
+
+    while (roadSegments[0].position.z > 10) {
+        const lastZ = roadSegments[roadSegments.length - 1].position.z;
+        const firstSegment = roadSegments.shift();
+        firstSegment.position.z = lastZ - 20;
+        roadSegments.push(firstSegment);
+    }
 }
 
 function updateGround() {
-    roadSegments.forEach(segment => {
+    grassSegments.forEach(segment => {
         segment.position.z += speed + carSpeed;
-        if (segment.position.z > 10) {
-            // Перемещаем траву дальше, чтобы она не прерывалась
-            segment.position.z = roadSegments.reduce((min, seg) => Math.min(min, seg.position.z), segment.position.z) - 20;
-        }
     });
+
+    while (grassSegments[0].position.z > 10) {
+        const lastZ = grassSegments[grassSegments.length - 1].position.z;
+        const firstSegment = grassSegments.shift();
+        firstSegment.position.z = lastZ - 20;
+        grassSegments.push(firstSegment);
+    }
+}
+
+function updateTrees() {
+    trees.forEach(tree => {
+        tree.position.z += speed + carSpeed;
+    });
+
+    while (trees[0].position.z > 10) {
+        const lastZ = trees[trees.length - 1].position.z;
+        const firstTree = trees.shift();
+        firstTree.position.z = lastZ - 20;  // Перемещаем назад
+        trees.push(firstTree);
+    }
 }
 
 function addTrees() {
@@ -147,6 +166,7 @@ function animate() {
         requestAnimationFrame(animate);
         updateRoad();
         updateGround();
+        updateTrees();
         renderer.render(scene, camera);
     }
 }
