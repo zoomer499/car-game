@@ -92,12 +92,66 @@ function addBarriers() {
     }
 }
 
+function setEyesColor(color) {
+    if (carEyes) {
+        carEyes.forEach(eye => {
+            eye.material.color.setHex(color);
+        });
+    }
+}
+
+let carEyes = [];
+
 function createCar() {
-    const carBodyGeometry = new THREE.BoxGeometry(1, 0.5, 2);
-    const carBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    car = new THREE.Mesh(carBodyGeometry, carBodyMaterial);
-    car.castShadow = true;
-    car.position.y = 0.25;
+    car = new THREE.Group();
+
+    // Тело кота
+    const bodyGeometry = new THREE.BoxGeometry(1, 0.6, 2);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc99 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    car.add(body);
+
+    // Голова кота
+    const headGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.set(0, 0.6, 0.8);
+    car.add(head);
+
+    // Уши кота
+    const earGeometry = new THREE.ConeGeometry(0.2, 0.4, 4);
+    const earMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa77 });
+    const earLeft = new THREE.Mesh(earGeometry, earMaterial);
+    const earRight = new THREE.Mesh(earGeometry, earMaterial);
+    earLeft.position.set(-0.3, 1, 0.8);
+    earRight.position.set(0.3, 1, 0.8);
+    car.add(earLeft, earRight);
+
+    // Глаза кота
+    const eyeGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const eyeLeft = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    const eyeRight = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    eyeLeft.position.set(-0.2, 0.7, 1.1);
+    eyeRight.position.set(0.2, 0.7, 1.1);
+    car.add(eyeLeft, eyeRight);
+
+    // Колёса
+    const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 8);
+    const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const wheels = [];
+    for (let i = 0; i < 4; i++) {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.rotation.z = Math.PI / 2;
+        wheels.push(wheel);
+    }
+    wheels[0].position.set(-0.5, -0.2, 0.8);
+    wheels[1].position.set(0.5, -0.2, 0.8);
+    wheels[2].position.set(-0.5, -0.2, -0.8);
+    wheels[3].position.set(0.5, -0.2, -0.8);
+    wheels.forEach(wheel => car.add(wheel));
+
+    car.position.y = 0.4;
     scene.add(car);
 }
 
@@ -106,11 +160,20 @@ function updateRoad() {
         segment.position.z += speed + carSpeed;
     });
 
-    while (roadSegments[0].position.z > 10) {
-        const lastZ = roadSegments[roadSegments.length - 1].position.z;
-        const firstSegment = roadSegments.shift();
-        firstSegment.position.z = lastZ - 20;
-        roadSegments.push(firstSegment);
+    if (carSpeed >= 0) { // Двигаемся вперед
+        while (roadSegments[0].position.z > 10) {
+            const lastZ = roadSegments[roadSegments.length - 1].position.z;
+            const firstSegment = roadSegments.shift();
+            firstSegment.position.z = lastZ - 20;
+            roadSegments.push(firstSegment);
+        }
+    } else { // Двигаемся назад
+        while (roadSegments[roadSegments.length - 1].position.z < -100) {
+            const lastSegment = roadSegments.pop();
+            const firstZ = roadSegments[0].position.z;
+            lastSegment.position.z = firstZ + 20;
+            roadSegments.unshift(lastSegment);
+        }
     }
 }
 
@@ -128,32 +191,56 @@ function updateGround() {
 }
 
 function updateTrees() {
-    trees.forEach(tree => {
-        tree.position.z += speed + carSpeed;
-    });
+    for (let i = 0; i < trees.length; i += 2) {
+        let trunk = trees[i];
+        let leaves = trees[i + 1];
 
-    while (trees[0].position.z > 10) {
-        const lastZ = trees[trees.length - 1].position.z;
-        const firstTree = trees.shift();
-        firstTree.position.z = lastZ - 20;  // Перемещаем назад
-        trees.push(firstTree);
+        trunk.position.z += speed + carSpeed;
+        leaves.position.z += speed + carSpeed;
+
+        if (trunk.position.z > 10) {
+            const lastZ = trees[trees.length - 1].position.z;
+            
+            trunk.position.z = lastZ - 20;
+            leaves.position.z = lastZ - 20;
+
+            trees.push(trees.shift(), trees.shift());
+        }
     }
 }
 
 function addTrees() {
-    const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+    let treeSpacing = 30; // Расстояние между деревьями
+    let treeCount = 15; // Уменьшаем количество деревьев
 
-    for (let i = 0; i < 40; i++) {
-        const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 10);
-        const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.set((Math.random() < 0.5 ? -7 : 7), 1, -Math.random() * 200);
+    for (let i = 0; i < treeCount; i++) {
+        let xPos = (Math.random() < 0.5 ? -8 : 8); // Левый или правый край
+        let zPos = -i * treeSpacing; // Расстояние между деревьями
+
+        let treeType = Math.random();
+        let trunkGeometry, trunkMaterial, leavesGeometry, leavesMaterial;
+
+        if (treeType < 0.4) {
+            trunkGeometry = new THREE.CylinderGeometry(0.2, 0.2, 3, 8);
+            leavesGeometry = new THREE.ConeGeometry(1, 2, 8);
+            leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x006400 });
+        } else if (treeType < 0.7) {
+            trunkGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 10);
+            leavesGeometry = new THREE.SphereGeometry(1.5, 8, 8);
+            leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+        } else {
+            trunkGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
+            leavesGeometry = new THREE.SphereGeometry(1, 8, 8);
+            leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2E8B57 });
+        }
+
+        const trunk = new THREE.Mesh(trunkGeometry, new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+        trunk.position.set(xPos, trunkGeometry.parameters.height / 2, zPos);
         trunk.castShadow = true;
         scene.add(trunk);
 
-        const leavesGeometry = new THREE.SphereGeometry(1, 8, 8);
-        const leaves = new THREE.Mesh(leavesGeometry, treeMaterial);
-        leaves.position.set(trunk.position.x, trunk.position.y + 1.5, trunk.position.z);
+        const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+        leaves.position.set(xPos, trunk.position.y + trunkGeometry.parameters.height / 2, zPos);
         leaves.castShadow = true;
         scene.add(leaves);
 
@@ -181,6 +268,7 @@ function onKeyDown(event) {
         carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
     } else if (event.key === 'ArrowDown' || event.key === 's') {
         carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2); // Можно сдавать назад
+        setEyesColor(0xff0000); // Красные глаза при торможении
     } else if (event.key === 'ArrowLeft' || event.key === 'a') {
         car.position.x = Math.max(car.position.x - 0.2, -roadWidth + 0.5);
     } else if (event.key === 'ArrowRight' || event.key === 'd') {
@@ -191,9 +279,9 @@ function onKeyDown(event) {
 function onKeyUp(event) {
     if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'ArrowDown' || event.key === 's') {
         carSpeed *= 0.9; // Постепенное торможение
+        setEyesColor(0x000000); // Глаза возвращаются в обычный цвет
     }
 }
-
 let isPaused = false;
 
 function onPause(event) {
@@ -222,10 +310,13 @@ function showMenu() {
         div.style.textAlign = "center";
         div.innerHTML = `
             <h1>Paused</h1>
-            <button onclick="resumeGame()">Resume</button>
-            <button onclick="restartGame()">Restart</button>
+            <button id="resumeButton">Resume</button>
+            <button id="restartButton">Restart</button>
         `;
         document.body.appendChild(div);
+
+        document.getElementById("resumeButton").addEventListener("click", resumeGame);
+        document.getElementById("restartButton").addEventListener("click", restartGame);
     }
 }
 
@@ -239,10 +330,11 @@ function hideMenu() {
 function resumeGame() {
     isPaused = false;
     hideMenu();
+    animate(); // Перезапускаем анимацию
 }
 
 function restartGame() {
-    location.reload(); // Перезапуск игры
+    location.reload();
 }
 
 init();
