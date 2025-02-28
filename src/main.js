@@ -74,6 +74,7 @@ function init() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     animate();
+    showControls();
 }
 
 function addBarriers() {
@@ -92,10 +93,11 @@ function addBarriers() {
     }
 }
 
-function setEyesColor(color) {
-    if (carEyes) {
+function setEyesColor(color, emissiveColor) {
+    if (carEyes.length > 0) {
         carEyes.forEach(eye => {
             eye.material.color.setHex(color);
+            eye.material.emissive.setHex(emissiveColor);
         });
     }
 }
@@ -127,14 +129,16 @@ function createCar() {
     earRight.position.set(0.3, 1, 0.8);
     car.add(earLeft, earRight);
 
-    // Глаза кота
+    // Глаза кота (добавляем в массив `carEyes`)
     const eyeGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x000000 }); // Добавляем эмиссию
     const eyeLeft = new THREE.Mesh(eyeGeometry, eyeMaterial);
     const eyeRight = new THREE.Mesh(eyeGeometry, eyeMaterial);
     eyeLeft.position.set(-0.2, 0.7, 1.1);
     eyeRight.position.set(0.2, 0.7, 1.1);
+
     car.add(eyeLeft, eyeRight);
+    carEyes = [eyeLeft, eyeRight]; // Сохраняем ссылки на глаза
 
     // Колёса
     const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 8);
@@ -182,11 +186,20 @@ function updateGround() {
         segment.position.z += speed + carSpeed;
     });
 
-    while (grassSegments[0].position.z > 10) {
-        const lastZ = grassSegments[grassSegments.length - 1].position.z;
-        const firstSegment = grassSegments.shift();
-        firstSegment.position.z = lastZ - 20;
-        grassSegments.push(firstSegment);
+    if (carSpeed >= 0) { // Двигаемся вперед
+        while (grassSegments[0].position.z > 10) {
+            const lastZ = grassSegments[grassSegments.length - 1].position.z;
+            const firstSegment = grassSegments.shift();
+            firstSegment.position.z = lastZ - 20;
+            grassSegments.push(firstSegment);
+        }
+    } else { // Двигаемся назад
+        while (grassSegments[grassSegments.length - 1].position.z < -100) {
+            const lastSegment = grassSegments.pop();
+            const firstZ = grassSegments[0].position.z;
+            lastSegment.position.z = firstZ + 20;
+            grassSegments.unshift(lastSegment);
+        }
     }
 }
 
@@ -263,12 +276,72 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+function showControls() {
+    const controlsDiv = document.createElement("div");
+    controlsDiv.id = "controls";
+    controlsDiv.style.position = "absolute";
+    controlsDiv.style.bottom = "20px";
+    controlsDiv.style.left = "50%";
+    controlsDiv.style.transform = "translateX(-50%)";
+    controlsDiv.style.display = "flex";
+    controlsDiv.style.gap = "20px";
+
+    // Кнопка Вперед (▲)
+    const upButton = document.createElement("button");
+    upButton.innerHTML = "▲";
+    upButton.style.fontSize = "30px";
+    upButton.style.padding = "10px 20px";
+    upButton.style.borderRadius = "10px";
+    upButton.style.border = "none";
+    upButton.style.background = "#555";
+    upButton.style.color = "white";
+    upButton.style.cursor = "pointer";
+    upButton.ontouchstart = () => onMobileKeyDown("up");
+    upButton.ontouchend = () => onMobileKeyUp("up");
+    
+    // Кнопка Назад (▼)
+    const downButton = document.createElement("button");
+    downButton.innerHTML = "▼";
+    downButton.style.fontSize = "30px";
+    downButton.style.padding = "10px 20px";
+    downButton.style.borderRadius = "10px";
+    downButton.style.border = "none";
+    downButton.style.background = "#555";
+    downButton.style.color = "white";
+    downButton.style.cursor = "pointer";
+    downButton.ontouchstart = () => onMobileKeyDown("down");
+    downButton.ontouchend = () => onMobileKeyUp("down");
+
+    // Добавляем кнопки на экран
+    controlsDiv.appendChild(upButton);
+    controlsDiv.appendChild(downButton);
+    document.body.appendChild(controlsDiv);
+}
+
+function onMobileKeyDown(direction) {
+    if (direction === "up") {
+        carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
+    } else if (direction === "down") {
+        carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2);
+        setEyesColor(0xff0000, 0xff0000); // Глаза красные 🔴 при торможении
+    }
+}
+
+function onMobileKeyUp(direction) {
+    if (direction === "up" || direction === "down") {
+        carSpeed *= 0.9; // Плавное торможение
+        setEyesColor(0x000000, 0x000000); // Глаза черные ⚫
+    }
+}
+
+
 function onKeyDown(event) {
     if (event.key === 'ArrowUp' || event.key === 'w') {
         carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
     } else if (event.key === 'ArrowDown' || event.key === 's') {
         carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2); // Можно сдавать назад
-        setEyesColor(0xff0000); // Красные глаза при торможении
+        setEyesColor(0xff0000, 0xff0000); // Глаза становятся красными 🔴
     } else if (event.key === 'ArrowLeft' || event.key === 'a') {
         car.position.x = Math.max(car.position.x - 0.2, -roadWidth + 0.5);
     } else if (event.key === 'ArrowRight' || event.key === 'd') {
@@ -279,9 +352,10 @@ function onKeyDown(event) {
 function onKeyUp(event) {
     if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'ArrowDown' || event.key === 's') {
         carSpeed *= 0.9; // Постепенное торможение
-        setEyesColor(0x000000); // Глаза возвращаются в обычный цвет
+        setEyesColor(0x000000, 0x000000); // Глаза возвращаются в черный ⚫
     }
 }
+
 let isPaused = false;
 
 function onPause(event) {
