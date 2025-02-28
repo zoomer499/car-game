@@ -284,47 +284,56 @@ function showControls() {
     controlsDiv.style.bottom = "20px";
     controlsDiv.style.left = "50%";
     controlsDiv.style.transform = "translateX(-50%)";
-    controlsDiv.style.display = "flex";
-    controlsDiv.style.gap = "20px";
+    controlsDiv.style.display = "grid";
+    controlsDiv.style.gridTemplateColumns = "60px 60px 60px";
+    controlsDiv.style.gridTemplateRows = "60px 60px";
+    controlsDiv.style.gap = "10px";
+    controlsDiv.style.justifyContent = "center";
+    controlsDiv.style.alignItems = "center";
 
-    // Кнопка Вперед (▲)
-    const upButton = document.createElement("button");
-    upButton.innerHTML = "▲";
-    upButton.style.fontSize = "30px";
-    upButton.style.padding = "10px 20px";
-    upButton.style.borderRadius = "10px";
-    upButton.style.border = "none";
-    upButton.style.background = "#555";
-    upButton.style.color = "white";
-    upButton.style.cursor = "pointer";
-    upButton.ontouchstart = () => onMobileKeyDown("up");
-    upButton.ontouchend = () => onMobileKeyUp("up");
-    
-    // Кнопка Назад (▼)
-    const downButton = document.createElement("button");
-    downButton.innerHTML = "▼";
-    downButton.style.fontSize = "30px";
-    downButton.style.padding = "10px 20px";
-    downButton.style.borderRadius = "10px";
-    downButton.style.border = "none";
-    downButton.style.background = "#555";
-    downButton.style.color = "white";
-    downButton.style.cursor = "pointer";
-    downButton.ontouchstart = () => onMobileKeyDown("down");
-    downButton.ontouchend = () => onMobileKeyUp("down");
+    function createButton(symbol, direction) {
+        const button = document.createElement("button");
+        button.innerHTML = symbol;
+        button.style.fontSize = "30px";
+        button.style.padding = "10px";
+        button.style.borderRadius = "10px";
+        button.style.border = "none";
+        button.style.background = "#555";
+        button.style.color = "white";
+        button.style.cursor = "pointer";
+        button.style.width = "60px";
+        button.style.height = "60px";
+        button.ontouchstart = () => onMobileKeyDown(direction);
+        button.ontouchend = () => onMobileKeyUp(direction);
+        return button;
+    }
 
-    // Добавляем кнопки на экран
+    // Кнопки
+    const upButton = createButton("▲", "up");
+    const downButton = createButton("▼", "down");
+    const leftButton = createButton("◄", "left");
+    const rightButton = createButton("►", "right");
+
+    // Расставляем кнопки в сетке
+    controlsDiv.appendChild(document.createElement("div")); // Пустая ячейка
     controlsDiv.appendChild(upButton);
+    controlsDiv.appendChild(document.createElement("div")); // Пустая ячейка
+    controlsDiv.appendChild(leftButton);
     controlsDiv.appendChild(downButton);
+    controlsDiv.appendChild(rightButton);
+
     document.body.appendChild(controlsDiv);
 }
-
 function onMobileKeyDown(direction) {
     if (direction === "up") {
         carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
     } else if (direction === "down") {
         carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2);
         setEyesColor(0xff0000, 0xff0000); // Глаза красные 🔴 при торможении
+    } else if (direction === "left") {
+        car.position.x = Math.max(car.position.x - 0.2, -roadWidth + 0.5);
+    } else if (direction === "right") {
+        car.position.x = Math.min(car.position.x + 0.2, roadWidth - 0.5);
     }
 }
 
