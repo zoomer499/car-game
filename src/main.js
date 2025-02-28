@@ -2,19 +2,25 @@ import * as THREE from 'three';
 
 let scene, camera, renderer, car, roadSegments = [], grassSegments = [];
 let trees = [];
+let carEyes = [];
+let rocks = [];
 let barriers = [];
 let speed = 0.2;
 let carSpeed = 0;
 let carAcceleration = 0.02;
 let maxSpeed = 2;
 const roadWidth = 4;
+let isPaused = false;
 
 function init() {
     scene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 10);
-    camera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 3, 6);  // Камера ближе к машине
+    camera.lookAt(0, 1, 0);  // Смотрит чуть вниз
+    camera.updateProjectionMatrix();
+    const hemiLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.6);
+    scene.add(hemiLight);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -42,16 +48,6 @@ function init() {
     scene.background = skyTexture;
 
     for (let i = 0; i < 10; i++) { // Увеличено с 5 до 10
-        // Создание травы
-        const groundGeometry = new THREE.PlaneGeometry(30, 20);
-        const groundMaterial = new THREE.MeshStandardMaterial({ map: grassTexture });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.z = -i * 20;
-        ground.receiveShadow = true;
-        scene.add(ground);
-        grassSegments.push(ground); 
-    
         // Создание дороги
         const roadGeometry = new THREE.PlaneGeometry(10, 20);
         const roadMaterial = new THREE.MeshStandardMaterial({ map: roadTexture });
@@ -73,6 +69,8 @@ function init() {
     document.addEventListener('keydown', onPause);
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
+    addRocks();
+    createGround();
     animate();
     showControls();
 }
@@ -102,62 +100,90 @@ function setEyesColor(color, emissiveColor) {
     }
 }
 
-let carEyes = [];
+// Создание травы
+function createGround() {
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+    for (let i = 0; i < 10; i++) {
+        let width = 30 - ((30 - 10) * (i / 10));
+        let heightVariation = Math.random() * 0.2; // Немного рандомизируем высоту
+        const groundGeometry = new THREE.PlaneGeometry(width, 20);
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = heightVariation;
+        ground.position.z = -i * 20;
+        scene.add(ground);
+        grassSegments.push(ground);
+    }
+}
 
 function createCar() {
     car = new THREE.Group();
 
-    // Тело кота
-    const bodyGeometry = new THREE.BoxGeometry(1, 0.6, 2);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc99 });
+    // Кузов машины
+    const bodyGeometry = new THREE.BoxGeometry(1.8, 0.6, 4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.castShadow = true;
     car.add(body);
 
-    // Голова кота
-    const headGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const head = new THREE.Mesh(headGeometry, bodyMaterial);
-    head.position.set(0, 0.6, 0.8);
-    car.add(head);
-
-    // Уши кота
-    const earGeometry = new THREE.ConeGeometry(0.2, 0.4, 4);
-    const earMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa77 });
-    const earLeft = new THREE.Mesh(earGeometry, earMaterial);
-    const earRight = new THREE.Mesh(earGeometry, earMaterial);
-    earLeft.position.set(-0.3, 1, 0.8);
-    earRight.position.set(0.3, 1, 0.8);
-    car.add(earLeft, earRight);
-
-    // Глаза кота (добавляем в массив `carEyes`)
-    const eyeGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x000000 }); // Добавляем эмиссию
-    const eyeLeft = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    const eyeRight = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    eyeLeft.position.set(-0.2, 0.7, 1.1);
-    eyeRight.position.set(0.2, 0.7, 1.1);
-
-    car.add(eyeLeft, eyeRight);
-    carEyes = [eyeLeft, eyeRight]; // Сохраняем ссылки на глаза
+    // Кабина
+    const cabinGeometry = new THREE.BoxGeometry(1.2, 0.6, 1.8);
+    const cabinMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+    const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
+    cabin.position.set(0, 0.6, 0.4);
+    car.add(cabin);
 
     // Колёса
-    const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 8);
+    const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12);
     const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const wheels = [];
-    for (let i = 0; i < 4; i++) {
+
+    const wheelPositions = [
+        [-0.9, -0.2, 1.5],
+        [0.9, -0.2, 1.5],
+        [-0.9, -0.2, -1.5],
+        [0.9, -0.2, -1.5],
+    ];
+
+    wheelPositions.forEach(pos => {
         const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
         wheel.rotation.z = Math.PI / 2;
-        wheels.push(wheel);
-    }
-    wheels[0].position.set(-0.5, -0.2, 0.8);
-    wheels[1].position.set(0.5, -0.2, 0.8);
-    wheels[2].position.set(-0.5, -0.2, -0.8);
-    wheels[3].position.set(0.5, -0.2, -0.8);
-    wheels.forEach(wheel => car.add(wheel));
+        wheel.position.set(...pos);
+        wheel.castShadow = true;
+        car.add(wheel);
+    });
+
+    // Фары
+    // Фары (добавил задние фары)
+    const lightGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+    
+    // Передние фары (желтые)
+    const frontLightMaterial = new THREE.MeshStandardMaterial({ emissive: 0xffffaa });
+    const headlightLeft = new THREE.Mesh(lightGeometry, frontLightMaterial);
+    const headlightRight = new THREE.Mesh(lightGeometry, frontLightMaterial);
+    headlightLeft.position.set(-0.6, 0.3, -2.05); // Передние фары
+    headlightRight.position.set(0.6, 0.3, -2.05);
+    car.add(headlightLeft, headlightRight);
+    
+    // Задние фары (по умолчанию выключены)
+    const rearLightMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x000000, emissiveIntensity: 1 });
+    const taillightLeft = new THREE.Mesh(lightGeometry, rearLightMaterial);
+    const taillightRight = new THREE.Mesh(lightGeometry, rearLightMaterial);
+    taillightLeft.position.set(-0.6, 0.3, 2.05); // Задние фары
+    taillightRight.position.set(0.6, 0.3, 2.05);
+    car.add(taillightLeft, taillightRight);
+    
+    // Сохраняем ссылки на задние фары для управления
+    car.rearLights = [taillightLeft, taillightRight];
 
     car.position.y = 0.4;
     scene.add(car);
+    console.log("Car Position:", car.position);
+    console.log("Front Lights Position:", headlightLeft.position, headlightRight.position);
+    console.log("Rear Lights Position:", taillightLeft.position, taillightRight.position);
 }
+
+
 
 function updateRoad() {
     roadSegments.forEach(segment => {
@@ -165,60 +191,89 @@ function updateRoad() {
     });
 
     if (carSpeed >= 0) { // Двигаемся вперед
-        while (roadSegments[0].position.z > 10) {
-            const lastZ = roadSegments[roadSegments.length - 1].position.z;
+        while (roadSegments[0].position.z > camera.position.z + 10) {
             const firstSegment = roadSegments.shift();
-            firstSegment.position.z = lastZ - 20;
+            const lastZ = roadSegments[roadSegments.length - 1].position.z;
+            firstSegment.position.z = lastZ - 20; // Поддерживаем равномерное расстояние
             roadSegments.push(firstSegment);
         }
     } else { // Двигаемся назад
-        while (roadSegments[roadSegments.length - 1].position.z < -100) {
+        while (roadSegments[roadSegments.length - 1].position.z < camera.position.z - 100) {
             const lastSegment = roadSegments.pop();
             const firstZ = roadSegments[0].position.z;
-            lastSegment.position.z = firstZ + 20;
+            lastSegment.position.z = firstZ + 20; // Поддерживаем равномерность
             roadSegments.unshift(lastSegment);
         }
     }
 }
 
 function updateGround() {
+    if (grassSegments.length === 0) return; // Проверяем, что есть сегменты
+
     grassSegments.forEach(segment => {
         segment.position.z += speed + carSpeed;
+        segment.position.y = -Math.abs(segment.position.z) * 0.02; // Наклон вниз
+    });
+
+    while (grassSegments.length > 0 && grassSegments[0].position.z > camera.position.z + 10) {
+        const firstSegment = grassSegments.shift();
+        const lastZ = grassSegments[grassSegments.length - 1].position.z;
+        firstSegment.position.z = lastZ - 20;
+        firstSegment.position.y = -Math.abs(firstSegment.position.z) * 0.02;
+        grassSegments.push(firstSegment);
+    }
+}
+
+function updateRocks() {
+    rocks.forEach(rock => {
+        rock.position.z += speed + carSpeed;
     });
 
     if (carSpeed >= 0) { // Двигаемся вперед
-        while (grassSegments[0].position.z > 10) {
-            const lastZ = grassSegments[grassSegments.length - 1].position.z;
-            const firstSegment = grassSegments.shift();
-            firstSegment.position.z = lastZ - 20;
-            grassSegments.push(firstSegment);
+        while (rocks[0].position.z > camera.position.z + 10) {
+            const firstRock = rocks.shift();
+            const lastZ = rocks[rocks.length - 1].position.z;
+            firstRock.position.z = lastZ - 50;
+            rocks.push(firstRock);
         }
     } else { // Двигаемся назад
-        while (grassSegments[grassSegments.length - 1].position.z < -100) {
-            const lastSegment = grassSegments.pop();
-            const firstZ = grassSegments[0].position.z;
-            lastSegment.position.z = firstZ + 20;
-            grassSegments.unshift(lastSegment);
+        while (rocks[rocks.length - 1].position.z < camera.position.z - 100) {
+            const lastRock = rocks.pop();
+            const firstZ = rocks[0].position.z;
+            lastRock.position.z = firstZ + 50;
+            rocks.unshift(lastRock);
         }
     }
 }
 
 function updateTrees() {
-    for (let i = 0; i < trees.length; i += 2) {
-        let trunk = trees[i];
-        let leaves = trees[i + 1];
+    trees.forEach(tree => {
+        tree.position.z += speed + carSpeed; // Двигаем деревья вместе с дорогой
+    });
 
-        trunk.position.z += speed + carSpeed;
-        leaves.position.z += speed + carSpeed;
+    // Проверяем, ушло ли дерево за пределы видимости
+    while (trees.length > 0 && trees[0].position.z > camera.position.z + 10) {
+        let firstTree = trees.shift();  // Удаляем переднее дерево
+        let lastTreeZ = trees[trees.length - 1].position.z; // Получаем Z последнего дерева
+        firstTree.position.z = lastTreeZ - 30;  // Телепортируем дальше
+        trees.push(firstTree);
+    }
+}
+function addRocks() {
+    let rockSpacing = 50; // Камни появляются реже деревьев
+    let rockCount = 7; // Количество камней
 
-        if (trunk.position.z > 10) {
-            const lastZ = trees[trees.length - 1].position.z;
-            
-            trunk.position.z = lastZ - 20;
-            leaves.position.z = lastZ - 20;
+    for (let i = 0; i < rockCount; i++) {
+        let xPos = (Math.random() < 0.5 ? -10 : 10); // Размещаем дальше от дороги
+        let zPos = -i * rockSpacing; // Расстояние между камнями
 
-            trees.push(trees.shift(), trees.shift());
-        }
+        let rockGeometry = new THREE.DodecahedronGeometry(0.5 + Math.random() * 0.5); // Разные размеры
+        let rockMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        let rock = new THREE.Mesh(rockGeometry, rockMaterial);
+        rock.position.set(xPos, 0.3, zPos); // Немного приподнимаем камень
+        rock.castShadow = true;
+        scene.add(rock);
+        rocks.push(rock);
     }
 }
 
@@ -262,11 +317,12 @@ function addTrees() {
 }
 
 function animate() {
-    if (!isPaused) { // Останавливаем игру при паузе
+    if (!isPaused) {
         requestAnimationFrame(animate);
         updateRoad();
         updateGround();
         updateTrees();
+        updateRocks(); // Добавили обновление камней
         renderer.render(scene, camera);
     }
 }
@@ -349,23 +405,37 @@ function onKeyDown(event) {
     if (event.key === 'ArrowUp' || event.key === 'w') {
         carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
     } else if (event.key === 'ArrowDown' || event.key === 's') {
-        carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2); // Можно сдавать назад
-        setEyesColor(0xff0000, 0xff0000); // Глаза становятся красными 🔴
+        carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2);
+        console.log("Braking - turning rear lights ON");
+        setRearLights(true); // Включаем задние фары
     } else if (event.key === 'ArrowLeft' || event.key === 'a') {
         car.position.x = Math.max(car.position.x - 0.2, -roadWidth + 0.5);
     } else if (event.key === 'ArrowRight' || event.key === 'd') {
         car.position.x = Math.min(car.position.x + 0.2, roadWidth - 0.5);
     }
 }
-
 function onKeyUp(event) {
     if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'ArrowDown' || event.key === 's') {
-        carSpeed *= 0.9; // Постепенное торможение
-        setEyesColor(0x000000, 0x000000); // Глаза возвращаются в черный ⚫
+        carSpeed *= 0.9;
+        console.log("Stopping braking - turning rear lights OFF");
+        setRearLights(false); // Выключаем задние фары
     }
 }
+function setRearLights(isOn) {
+    if (!car.rearLights) {
+        console.warn("Rear lights are not defined!");
+        return;
+    }
 
-let isPaused = false;
+    const color = isOn ? 0xff0000 : 0x000000;
+    car.rearLights.forEach(light => {
+        light.material.emissive.setHex(color);
+        light.material.emissiveIntensity = isOn ? 2 : 0; // Повышаем интенсивность при торможении
+    });
+
+    console.log("Rear lights set to:", isOn ? "ON (red)" : "OFF (black)");
+}
+
 
 function onPause(event) {
     if (event.key === 'Escape') {
