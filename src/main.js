@@ -12,7 +12,7 @@ let maxSpeed = 2;
 const roadWidth = 4;
 let isPaused = false;
 
-function init() {
+export function init() {
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -117,8 +117,8 @@ function createGround() {
     }
 }
 
-function createCar() {
-    car = new THREE.Group();
+export function createCar() {
+    const car = new THREE.Group();
 
     // Кузов машины
     const bodyGeometry = new THREE.BoxGeometry(1.8, 0.6, 4);
@@ -181,11 +181,12 @@ function createCar() {
     console.log("Car Position:", car.position);
     console.log("Front Lights Position:", headlightLeft.position, headlightRight.position);
     console.log("Rear Lights Position:", taillightLeft.position, taillightRight.position);
+    return car;
 }
 
 
 
-function updateRoad() {
+export function updateRoad() {
     roadSegments.forEach(segment => {
         segment.position.z += speed + carSpeed;
     });
@@ -207,7 +208,7 @@ function updateRoad() {
     }
 }
 
-function updateGround() {
+export function updateGround() {
     if (grassSegments.length === 0) return; // Проверяем, что есть сегменты
 
     grassSegments.forEach(segment => {
@@ -421,7 +422,7 @@ function onKeyUp(event) {
         setRearLights(false); // Выключаем задние фары
     }
 }
-function setRearLights(isOn) {
+export function setRearLights(isOn) {
     if (!car.rearLights) {
         console.warn("Rear lights are not defined!");
         return;

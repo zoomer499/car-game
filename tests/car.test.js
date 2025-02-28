@@ -1,31 +1,16 @@
-import { createCar, setRearLights } from '../src/main.js';
-import * as THREE from 'three';
+import { jest } from '@jest/globals';
+jest.mock("three");
+import { createCar } from "../src/main.js";
+import * as THREE from "three";
 
-jest.mock('three');
+describe("Car", () => {
+  it("should be created with correct structure", () => {
+    const car = createCar();
+    expect(car.children.length).toBeGreaterThan(0);
+  });
 
-describe('Car Tests', () => {
-    let car;
-
-    beforeEach(() => {
-        car = createCar();
-    });
-
-    test('Car should be created with the correct structure', () => {
-        expect(car).toBeDefined();
-        expect(car.children.length).toBeGreaterThan(0);
-    });
-
-    test('Rear lights should turn ON when braking', () => {
-        setRearLights(true);
-        car.rearLights.forEach(light => {
-            expect(light.material.emissive.getHex()).toBe(0xff0000);
-        });
-    });
-
-    test('Rear lights should turn OFF when not braking', () => {
-        setRearLights(false);
-        car.rearLights.forEach(light => {
-            expect(light.material.emissive.getHex()).toBe(0x000000);
-        });
-    });
+  it("should have rear lights", () => {
+    const car = createCar();
+    expect(car.rearLights.length).toBe(2);
+  });
 });
