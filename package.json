@@ -1,0 +1,26 @@
+{
+  "name": "car-game",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zoomer499/car-game.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zoomer499/car-game/issues"
+  },
+  "homepage": "https://github.com/zoomer499/car-game#readme",
+  "dependencies": {
+    "three": "^0.174.0",
+    "vite": "^6.2.0"
+  }
+}
