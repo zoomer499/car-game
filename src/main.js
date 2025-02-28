@@ -70,6 +70,7 @@ function init() {
     addBarriers();
     
     window.addEventListener('resize', onWindowResize);
+    document.addEventListener('keydown', onPause);
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     animate();
@@ -104,8 +105,18 @@ function updateRoad() {
     roadSegments.forEach(segment => {
         segment.position.z += speed + carSpeed;
         if (segment.position.z > 10) {
-            segment.position.z = roadSegments[roadSegments.length - 1].position.z - 20;
-            roadSegments.push(roadSegments.shift());
+            // Находим самый дальний сегмент и перемещаем его назад
+            segment.position.z = roadSegments.reduce((min, seg) => Math.min(min, seg.position.z), segment.position.z) - 20;
+        }
+    });
+}
+
+function updateGround() {
+    roadSegments.forEach(segment => {
+        segment.position.z += speed + carSpeed;
+        if (segment.position.z > 10) {
+            // Перемещаем траву дальше, чтобы она не прерывалась
+            segment.position.z = roadSegments.reduce((min, seg) => Math.min(min, seg.position.z), segment.position.z) - 20;
         }
     });
 }
@@ -132,9 +143,12 @@ function addTrees() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
-    updateRoad();
-    renderer.render(scene, camera);
+    if (!isPaused) { // Останавливаем игру при паузе
+        requestAnimationFrame(animate);
+        updateRoad();
+        updateGround();
+        renderer.render(scene, camera);
+    }
 }
 
 function onWindowResize() {
@@ -158,6 +172,57 @@ function onKeyUp(event) {
     if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'ArrowDown' || event.key === 's') {
         carSpeed *= 0.9; // Постепенное торможение
     }
+}
+
+let isPaused = false;
+
+function onPause(event) {
+    if (event.key === 'Escape') {
+        isPaused = !isPaused;
+        if (isPaused) {
+            showMenu();
+        } else {
+            hideMenu();
+        }
+    }
+}
+
+function showMenu() {
+    const menu = document.getElementById("menu");
+    if (!menu) {
+        const div = document.createElement("div");
+        div.id = "menu";
+        div.style.position = "absolute";
+        div.style.top = "50%";
+        div.style.left = "50%";
+        div.style.transform = "translate(-50%, -50%)";
+        div.style.padding = "20px";
+        div.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+        div.style.color = "white";
+        div.style.textAlign = "center";
+        div.innerHTML = `
+            <h1>Paused</h1>
+            <button onclick="resumeGame()">Resume</button>
+            <button onclick="restartGame()">Restart</button>
+        `;
+        document.body.appendChild(div);
+    }
+}
+
+function hideMenu() {
+    const menu = document.getElementById("menu");
+    if (menu) {
+        document.body.removeChild(menu);
+    }
+}
+
+function resumeGame() {
+    isPaused = false;
+    hideMenu();
+}
+
+function restartGame() {
+    location.reload(); // Перезапуск игры
 }
 
 init();
