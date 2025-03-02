@@ -11,6 +11,7 @@ let carAcceleration = 0.02;
 let maxSpeed = 2;
 const roadWidth = 4;
 let isPaused = false;
+let selectedCar = "default"; // По умолчанию используется первая машина
 
 export function init() {
     scene = new THREE.Scene();
@@ -73,6 +74,7 @@ export function init() {
     createGround();
     animate();
     showControls();
+    showGameMenu();
 }
 
 function addBarriers() {
@@ -118,6 +120,23 @@ function createGround() {
 }
 
 export function createCar() {
+    if (car) {
+        scene.remove(car); // Удаляем старую машину
+    }
+
+    if (selectedCar === "legoF1") {
+        car = createCarLegoF1();
+    } else {
+        car = createDefaultCar();
+    }
+
+    carSpeed = 0; // Сбрасываем скорость при смене машины
+    console.log("Car speed reset to 0 after switching cars.");
+
+    scene.add(car);
+}
+
+export function createDefaultCar() {
     const car = new THREE.Group();
 
     // Кузов машины
@@ -181,6 +200,58 @@ export function createCar() {
     console.log("Car Position:", car.position);
     console.log("Front Lights Position:", headlightLeft.position, headlightRight.position);
     console.log("Rear Lights Position:", taillightLeft.position, taillightRight.position);
+    return car;
+}
+
+function createCarLegoF1() {
+    const car = new THREE.Group();
+
+    // Основной корпус
+    const bodyGeometry = new THREE.BoxGeometry(2, 0.5, 5);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    car.add(body);
+
+    // Кабина пилота
+    const cockpitGeometry = new THREE.BoxGeometry(1, 0.6, 1.2);
+    const cockpitMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.set(0, 0.5, -1);
+    car.add(cockpit);
+
+    // Переднее и заднее антикрыло
+    const wingGeometry = new THREE.BoxGeometry(2.5, 0.1, 0.5);
+    const wingMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    
+    const frontWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    frontWing.position.set(0, 0.2, -2.5);
+    car.add(frontWing);
+
+    const rearWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    rearWing.position.set(0, 0.3, 2.5);
+    car.add(rearWing);
+
+    // Колеса
+    const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.3, 12);
+    const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+    const wheelPositions = [
+        [-1.2, -0.2, 2],
+        [1.2, -0.2, 2],
+        [-1.2, -0.2, -2],
+        [1.2, -0.2, -2],
+    ];
+
+    wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(...pos);
+        wheel.castShadow = true;
+        car.add(wheel);
+    });
+
+    car.position.y = 0.4;
     return car;
 }
 
@@ -403,11 +474,12 @@ function onMobileKeyUp(direction) {
 
 
 function onKeyDown(event) {
+    if (!car) return; // Проверяем, есть ли машина
+
     if (event.key === 'ArrowUp' || event.key === 'w') {
         carSpeed = Math.min(carSpeed + carAcceleration, maxSpeed);
     } else if (event.key === 'ArrowDown' || event.key === 's') {
         carSpeed = Math.max(carSpeed - carAcceleration, -maxSpeed / 2);
-        console.log("Braking - turning rear lights ON");
         setRearLights(true); // Включаем задние фары
     } else if (event.key === 'ArrowLeft' || event.key === 'a') {
         car.position.x = Math.max(car.position.x - 0.2, -roadWidth + 0.5);
@@ -438,15 +510,87 @@ export function setRearLights(isOn) {
 }
 
 
+function startGame() {
+    hideGameMenu();
+    carSpeed = 0;  // Начинаем с нулевой скорости
+    animate();  // Запускаем анимацию
+}
+
+function showGameMenu(isPaused = false) {
+    let menu = document.getElementById("game-menu");
+
+    if (!menu) {
+        menu = document.createElement("div");
+        menu.id = "game-menu";
+        menu.style.position = "absolute";
+        menu.style.top = "50%";
+        menu.style.left = "50%";
+        menu.style.transform = "translate(-50%, -50%)";
+        menu.style.padding = "20px";
+        menu.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+        menu.style.color = "white";
+        menu.style.textAlign = "center";
+        menu.style.borderRadius = "10px";
+        menu.style.boxShadow = "0px 0px 10px rgba(255, 255, 255, 0.5)";
+        menu.style.display = "flex";
+        menu.style.flexDirection = "column";
+        menu.style.gap = "10px";
+        document.body.appendChild(menu);
+    }
+
+    menu.innerHTML = `<h1>Car Game</h1>
+        <button id="newGameButton">New Game</button>
+        <button id="resumeButton">Resume</button> `;
+
+    document.getElementById("newGameButton").addEventListener("click", startGame);
+    document.getElementById("resumeButton").addEventListener("click", resumeGame);
+}
+
+function hideGameMenu() {
+    const menu = document.getElementById("game-menu");
+    if (menu) {
+        document.body.removeChild(menu);
+    }
+}
+
+
+function resumeGame() {
+    isPaused = false;
+    hideGameMenu();
+    animate();
+}
+
 function onPause(event) {
     if (event.key === 'Escape') {
         isPaused = !isPaused;
         if (isPaused) {
-            showMenu();
+            showGameMenu(true);
         } else {
-            hideMenu();
+            hideGameMenu();
+            animate();
         }
     }
+}
+
+function showStartMenu() {
+    const menu = document.createElement("div");
+    menu.id = "start-menu";
+    menu.style.position = "absolute";
+    menu.style.top = "50%";
+    menu.style.left = "50%";
+    menu.style.transform = "translate(-50%, -50%)";
+    menu.style.padding = "20px";
+    menu.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    menu.style.color = "white";
+    menu.style.textAlign = "center";
+    menu.innerHTML = `
+        <h1>Car Game</h1>
+        <button id="newGameButton">New Game</button>
+    `;
+    
+    document.body.appendChild(menu);
+
+    document.getElementById("newGameButton").addEventListener("click", startGame);
 }
 
 function showMenu() {
@@ -465,30 +609,79 @@ function showMenu() {
         div.innerHTML = `
             <h1>Paused</h1>
             <button id="resumeButton">Resume</button>
-            <button id="restartButton">Restart</button>
         `;
         document.body.appendChild(div);
 
         document.getElementById("resumeButton").addEventListener("click", resumeGame);
-        document.getElementById("restartButton").addEventListener("click", restartGame);
     }
 }
+function showCarSelectionMenu() {
+    const menu = document.createElement("div");
+    menu.id = "car-selection";
+    menu.style.position = "absolute";
+    menu.style.top = "50%";
+    menu.style.left = "50%";
+    menu.style.transform = "translate(-50%, -50%)";
+    menu.style.padding = "20px";
+    menu.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    menu.style.color = "white";
+    menu.style.textAlign = "center";
+
+    menu.innerHTML = `
+        <h1>Select Car</h1>
+        <button id="defaultCar">Default Car</button>
+        <button id="legoF1Car">LEGO F1 Car</button>
+    `;
+
+    document.body.appendChild(menu);
+
+    document.getElementById("defaultCar").addEventListener("click", () => selectCar("default"));
+    document.getElementById("legoF1Car").addEventListener("click", () => selectCar("legoF1"));
+}
+
+function selectCar(carType) {
+    selectedCar = carType;
+
+    // Удаляем текущее меню выбора машины
+    const menu = document.getElementById("car-selection");
+    if (menu) {
+        document.body.removeChild(menu);
+    }
+
+    // Удаляем старую машину, если она есть
+    if (car) {
+        scene.remove(car);
+    }
+
+    // Сбрасываем скорость машины
+    carSpeed = 0;
+
+    // Создаем новую машину
+    createCar();
+}
+
+function addMenuButton() {
+    const button = document.createElement("button");
+    button.innerHTML = "Change Car";
+    button.style.position = "absolute";
+    button.style.top = "10px";
+    button.style.left = "10px";
+    button.style.padding = "10px";
+    button.style.border = "none";
+    button.style.background = "#555";
+    button.style.color = "white";
+    button.style.cursor = "pointer";
+    button.addEventListener("click", showCarSelectionMenu);
+    document.body.appendChild(button);
+}
+
+addMenuButton();
 
 function hideMenu() {
     const menu = document.getElementById("menu");
     if (menu) {
         document.body.removeChild(menu);
     }
-}
-
-function resumeGame() {
-    isPaused = false;
-    hideMenu();
-    animate(); // Перезапускаем анимацию
-}
-
-function restartGame() {
-    location.reload();
 }
 
 init();
